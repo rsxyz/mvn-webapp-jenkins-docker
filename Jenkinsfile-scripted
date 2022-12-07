@@ -1,10 +1,11 @@
 node {
-
+    def tag
     stage('Checkout') { 
         // Get some code from a GitHub repository
         git branch: 'main', credentialsId: 'mygithub', url: 'https://github.com/rsxyz/mvn-webapp-jenkins-docker.git'
         
     }
+
     stage('Maven Build') {
         //pre: Maven is configured with ID MAVEN
         def mvnHome = tool name: 'MAVEN', type: 'maven'
@@ -14,20 +15,21 @@ node {
         }
     }
     stage('Docker Build'){
-        sh 'docker build -t rsxyz123/demowebapp:latest .'
+        tag = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
+        sh "docker build -t rsxyz123/demowebapp:${tag} ."
     }
     stage('Docker Push'){
         //pre: create credeential of type secrettext with DOCKER_PWD
         withCredentials([string(credentialsId: 'DOCKER_PWD', variable: 'dockerPassword')]) {
             sh 'docker login -u rsxyz123 -p $dockerPassword'
         }
-        sh "docker push rsxyz123/demowebapp:latest"
+        sh "docker push rsxyz123/demowebapp:${tag}"
     }
     stage('Docker deploy'){
         sshagent(['DEVOPS_KEY']) {
                 sh "ssh -o StrictHostKeyChecking=no ec2-user@x.x.x.x docker rm -f demowebapp"
-                sh "ssh -o StrictHostKeyChecking=no ec2-user@x.x.x.x docker pull rsxyz123/demowebapp:latest"
-                sh "ssh ec2-user@x.x.x.x docker run -d -p 8080:8080 --name demowebapp rsxyz123/demowebapp:latest"
+                sh "ssh -o StrictHostKeyChecking=no ec2-user@x.x.x.x docker pull rsxyz123/demowebapp:${tag}"
+                sh "ssh ec2-user@x.x.x.x docker run -d -p 8080:8080 --name demowebapp rsxyz123/demowebapp:${tag}"
         }
     }
 }
