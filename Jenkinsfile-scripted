@@ -26,7 +26,7 @@ node {
     stage('Docker deploy'){
         sshagent(['DEVOPS_KEY']) {
                 sh "ssh -o StrictHostKeyChecking=no ec2-user@x.x.x.x docker rm -f demowebapp"
-                sh "ssh -o StrictHostKeyChecking=no ec2-user@x.x.x.x docker image rm rsxyz123/demowebapp:latest -f"
+                sh "ssh -o StrictHostKeyChecking=no ec2-user@x.x.x.x docker pull rsxyz123/demowebapp:latest"
                 sh "ssh ec2-user@x.x.x.x docker run -d -p 8080:8080 --name demowebapp rsxyz123/demowebapp:latest"
         }
     }
