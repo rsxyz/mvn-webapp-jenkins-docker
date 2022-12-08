@@ -25,7 +25,7 @@ kind: Service
 metadata:
   name: demowebapp-svc
   labels:
-    eapp: demowebapp
+    app: demowebapp
 spec:
   type: LoadBalancer
   ports:
