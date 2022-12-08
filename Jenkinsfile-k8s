@@ -1,0 +1,43 @@
+node {
+    def tag
+    stage('Prep'){
+       sh 'curl -LO https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl'
+       sh 'chmod +x ./kubectl && mv kubectl /usr/local/sbin'
+    }
+    stage('Checkout') { 
+        // Get some code from a GitHub repository
+        git branch: 'main', credentialsId: 'mygithub', url: 'https://github.com/rsxyz/mvn-webapp-jenkins-docker.git'
+        
+    }
+
+    stage('Maven Build') {
+        //pre: Maven is configured with ID MAVEN
+        def mvnHome = tool name: 'MAVEN', type: 'maven'
+        // Run the maven build
+        withEnv(["MVN_HOME=$mvnHome"]) {
+                sh "$MVN_HOME/bin/mvn -Dmaven.test.failure.ignore clean package"
+        }
+    }
+    stage('Docker Build'){
+        tag = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
+        sh "docker build -t rsxyz123/demowebapp:${tag} ."
+    }
+    stage('Docker Push'){
+        //pre: create credeential of type secrettext with DOCKER_PWD
+        withCredentials([string(credentialsId: 'DOCKER_PWD', variable: 'dockerPassword')]) {
+            sh 'docker login -u rsxyz123 -p $dockerPassword'
+        }
+        sh "docker push rsxyz123/demowebapp:${tag}"
+    }
+
+    stage('K8S deploy'){
+          withKubeConfig(credentialsId: 'K8S', serverUrl: 'https://AE059C5E72F0DB8B4463757202F5751A.gr7.us-east-1.eks.amazonaws.com') {
+            def imageName="rsxyz123/demowebapp:${tag}"
+            sh "cat k8s-deployment_service.yaml"
+            sh "sed -i 's#replace#${imageName}#g' k8s-deployment_service.yaml"
+            sh "cat k8s-deployment_service.yaml"
+            sh "kubectl get nodes"
+            sh "kubectl -n default apply -f k8s-deployment_service.yaml"
+          }
+    }
+}
